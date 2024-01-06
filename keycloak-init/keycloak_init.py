@@ -89,7 +89,7 @@ class KeycloakSession:
             "description": "Browser With Recaptcha",
             "providerId": "basic-flow",
             "topLevel": True,
-            "builtIn": True,
+            "builtIn": False,
             "authenticationExecutions": [
                 {"id": recaptcha_execution_id, "requirement": "ALTERNATIVE"},
                 {"id": existing_execution["id"], "requirement": "REQUIRED"}
