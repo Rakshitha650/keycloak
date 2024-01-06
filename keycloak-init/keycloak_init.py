@@ -56,6 +56,55 @@ class KeycloakSession:
         except:
             raise
 
+    def create_browser_flow_with_recaptcha(self, realm, recaptcha_execution_alias):
+        # Create a new execution for reCAPTCHA
+        recaptcha_execution_info = self.create_recaptcha_execution(realm, recaptcha_execution_alias)
+        recaptcha_execution_id = recaptcha_execution_info["id"]
+
+        # Update the Browser flow to include the reCAPTCHA execution
+        browser_flow_id = self.get_auth_flow_id(realm, "browser")
+        self.update_browser_flow(realm, browser_flow_id, recaptcha_execution_id)
+
+    def create_recaptcha_execution(self, realm, alias):
+        executions_url = f"{self.keycloak_admin.server_url}/admin/realms/{realm}/authentication/flows/browser/executions"
+        data = {
+            "provider": "recaptcha",
+            "displayName": "reCAPTCHA",
+            "config": {},
+        }
+        try:
+            response = self.keycloak_admin.connection.raw_post(executions_url, data=json.dumps(data))
+            return response.json()
+        except KeycloakError as e:
+            if e.response_code == 409:
+                print('\t\tExecution %s already exists; SKIPPING;' % alias)
+            else:
+                raise
+
+    def update_browser_flow(self, realm, flow_id, recaptcha_execution_id):
+        flow_url = f"{self.keycloak_admin.server_url}/admin/realms/{realm}/authentication/flows/{flow_id}"
+        data = {
+            "alias": "Browser With Recaptcha",
+            "displayName": "Browser With Recaptcha",
+            "description": "Browser With Recaptcha",
+            "providerId": "basic-flow",
+            "topLevel": True,
+            "builtIn": True,
+            "authenticationExecutions": [
+                {"id": recaptcha_execution_id, "requirement": "ALTERNATIVE"},
+                {"id": existing_execution["id"], "requirement": "REQUIRED"}
+                for existing_execution in existing_flow["authenticationExecutions"]
+            ],
+        }
+        try:
+            response = self.keycloak_admin.connection.raw_put(flow_url, data=json.dumps(data))
+            return response.json()
+        except KeycloakError as e:
+            if e.response_code == 409:
+                print('\t\tFlow %s already exists; SKIPPING;' % flow_id)
+            else:
+                raise
+
     def delete_realm(self, realm, skip_exists=False):
         self.keycloak_admin.realm_name = realm  # work around because otherwise client was getting created in master
         url = 'admin/realms/'+realm
